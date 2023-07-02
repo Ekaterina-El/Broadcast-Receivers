@@ -1,36 +1,48 @@
 package com.elka.broadcastreceivers
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.widget.Button
+import android.widget.ProgressBar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class MainActivity : AppCompatActivity() {
-  private var countOfClicks = 0
-  private val receiver = MyReceiver()
+  private val localBroadcastManager by lazy {
+    LocalBroadcastManager.getInstance(this)
+  }
+
+  private lateinit var progressBar: ProgressBar
+  private val receiver = object : BroadcastReceiver() {
+    override fun onReceive(p0: Context?, intent: Intent?) {
+      if (intent?.action == LoaderService.ACTION_LOAD) {
+        val progress = intent.getIntExtra(LoaderService.LOAD_PROGRESS, 0)
+        progressBar.progress = progress
+      }
+    }
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
 
-    findViewById<Button>(R.id.btn).setOnClickListener {
-      countOfClicks++
-      val broadcastIntent = Intent(MyReceiver.ACTION_CLICKED)
-        .putExtra(MyReceiver.COUNT_OF_CLICKS, countOfClicks)
-      sendBroadcast(broadcastIntent)
-    }
+    // init ui
+    progressBar = findViewById(R.id.progress_bar)
 
-    val intentFilter = IntentFilter().apply {
-      addAction(Intent.ACTION_BATTERY_LOW)
-      addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
-      addAction(MyReceiver.ACTION_CLICKED)
+    // reg receiver
+    val intentFilter = IntentFilter().apply { addAction(LoaderService.ACTION_LOAD) }
+    localBroadcastManager.registerReceiver(receiver, intentFilter)
+
+    // start service
+    Intent(this, LoaderService::class.java).apply {
+      startService(this)
     }
-    registerReceiver(receiver, intentFilter)
   }
 
   override fun onDestroy() {
     super.onDestroy()
-    unregisterReceiver(receiver)
+    localBroadcastManager.unregisterReceiver(receiver)
   }
 }
